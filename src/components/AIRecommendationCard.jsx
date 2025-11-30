@@ -33,7 +33,7 @@ const AIRecommendationCard = ({ space, showAIDetails = true, rank = null }) => {
       case 'Excellent Option':
         return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
       case 'Great Choice':
-        return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white';
+        return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -95,7 +95,7 @@ const AIRecommendationCard = ({ space, showAIDetails = true, rank = null }) => {
 
         {/* AI Score Section */}
         {showAIDetails && space.aiScore !== undefined && (
-          <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+          <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-600" />

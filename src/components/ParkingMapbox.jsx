@@ -1,11 +1,12 @@
 /**
- * PARKING MAP COMPONENT - MAPBOX
+ * PARKING MAP COMPONENT - MAPBOX (Enhanced)
  * Displays parking spaces on Mapbox with real-time updates
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import './mapbox-styles.css';
 import { useNavigate } from 'react-router-dom';
 
 const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, selectedSpace }) => {
@@ -13,6 +14,7 @@ const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, select
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState(null);
   const navigate = useNavigate();
 
   // Initialize Mapbox
@@ -21,30 +23,41 @@ const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, select
     
     console.log('🗺️ Initializing Mapbox...');
     console.log('Token present:', !!token);
+    console.log('Container ref:', mapContainerRef.current);
     
     if (!token) {
-      console.error('❌ Mapbox token not found in environment variables');
-      console.error('Make sure VITE_MAPBOX_TOKEN is set in .env file');
+      const error = 'Mapbox token not found. Please add VITE_MAPBOX_TOKEN to your .env file';
+      console.error('❌', error);
+      setMapError(error);
       return;
     }
 
-    mapboxgl.accessToken = token;
-    console.log('✅ Mapbox token set');
+    if (!mapContainerRef.current) {
+      console.error('❌ Map container ref not available');
+      setMapError('Map container not ready');
+      return;
+    }
 
-    const center = userLocation 
-      ? [userLocation.lng, userLocation.lat]
-      : [36.817223, -1.286389]; // Nairobi default
+    try {
+      mapboxgl.accessToken = token;
+      console.log('✅ Mapbox token set');
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12', // Use streets instead of satellite for better performance
-      center: center,
-      zoom: 13,
-      pitch: 0, // Disable 3D tilt to prevent WebGL issues
-      bearing: 0,
-      antialias: false, // Disable antialiasing for better performance
-      preserveDrawingBuffer: true // Help with WebGL context
-    });
+      const center = userLocation 
+        ? [userLocation.lng, userLocation.lat]
+        : [36.817223, -1.286389]; // Nairobi default
+
+      const map = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: center,
+        zoom: 13,
+        pitch: 0,
+        bearing: 0,
+        antialias: true,
+        preserveDrawingBuffer: false
+      });
+
+      console.log('✅ Mapbox instance created');
 
     // Add navigation controls
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -62,55 +75,65 @@ const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, select
       onRemove: () => {}
     }, 'top-right');
 
-    map.on('load', () => {
-      console.log('✅ Mapbox map loaded successfully');
-      setMapLoaded(true);
+      map.on('load', () => {
+        console.log('✅ Mapbox map loaded successfully');
+        setMapLoaded(true);
+        setMapError(null);
 
-      // Style switcher handlers
-      document.getElementById('satellite-btn')?.addEventListener('click', () => {
-        map.setStyle('mapbox://styles/mapbox/satellite-v9'); // Simpler satellite style
-        map.setPitch(0); // Keep flat to avoid WebGL issues
+        // Style switcher handlers
+        setTimeout(() => {
+          document.getElementById('satellite-btn')?.addEventListener('click', () => {
+            map.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
+          });
+          document.getElementById('streets-btn')?.addEventListener('click', () => {
+            map.setStyle('mapbox://styles/mapbox/streets-v12');
+          });
+        }, 100);
       });
-      document.getElementById('streets-btn')?.addEventListener('click', () => {
-        map.setStyle('mapbox://styles/mapbox/streets-v12');
-        map.setPitch(0);
-      });
-    });
 
-    map.on('error', (e) => {
-      console.error('❌ Mapbox error:', e);
-      if (e.error && e.error.message && e.error.message.includes('WebGL')) {
-        console.warn('⚠️ WebGL context lost - map may need refresh');
+      map.on('error', (e) => {
+        console.error('❌ Mapbox error:', e);
+        setMapError(e.error?.message || 'Map loading error');
+      });
+
+      // Handle WebGL context loss
+      const canvas = map.getCanvas();
+      if (canvas) {
+        canvas.addEventListener('webglcontextlost', (e) => {
+          console.warn('⚠️ WebGL context lost, preventing default');
+          e.preventDefault();
+        });
+
+        canvas.addEventListener('webglcontextrestored', () => {
+          console.log('✅ WebGL context restored');
+          setMapLoaded(true);
+        });
       }
-    });
 
-    // Handle WebGL context loss
-    const canvas = map.getCanvas();
-    if (canvas) {
-      canvas.addEventListener('webglcontextlost', (e) => {
-        console.warn('⚠️ WebGL context lost, preventing default');
-        e.preventDefault();
-      });
+      mapRef.current = map;
 
-      canvas.addEventListener('webglcontextrestored', () => {
-        console.log('✅ WebGL context restored');
-      });
+      return () => {
+        if (map) {
+          map.remove();
+          console.log('🗑️ Mapbox instance removed');
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error initializing Mapbox:', error);
+      setMapError(error.message || 'Failed to initialize map');
     }
-
-    mapRef.current = map;
-    console.log('✅ Mapbox instance created');
-
-    return () => {
-      if (map) {
-        map.remove();
-        console.log('🗑️ Mapbox instance removed');
-      }
-    };
   }, []);
 
   // Add user location marker
   useEffect(() => {
     if (!mapRef.current || !mapLoaded || !userLocation) return;
+
+    // Validate user location coordinates
+    if (!userLocation.lat || !userLocation.lng || 
+        isNaN(userLocation.lat) || isNaN(userLocation.lng)) {
+      console.warn('⚠️ Invalid user location coordinates:', userLocation);
+      return;
+    }
 
     const el = document.createElement('div');
     el.className = 'user-location-marker';
@@ -148,6 +171,13 @@ const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, select
 
     parkingSpaces.forEach((space) => {
       const coords = space.coordinates || { lat: -1.286389, lng: 36.817223 };
+      
+      // Validate coordinates
+      if (!coords.lat || !coords.lng || isNaN(coords.lat) || isNaN(coords.lng)) {
+        console.warn(`⚠️ Invalid coordinates for ${space.name}:`, coords);
+        return; // Skip this space
+      }
+
       const availableSpots = space.availableSpots || space.available || 0;
       const isAvailable = space.status === 'available' && availableSpots > 0;
 
@@ -237,24 +267,54 @@ const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, select
         .addTo(mapRef.current);
 
       markersRef.current.push(marker);
-      bounds.extend([coords.lng, coords.lat]);
+      
+      // Only extend bounds if coordinates are valid
+      if (coords.lng && coords.lat && !isNaN(coords.lng) && !isNaN(coords.lat)) {
+        bounds.extend([coords.lng, coords.lat]);
+      }
     });
 
     // Fit map to show all markers
-    if (parkingSpaces.length > 0) {
-      if (userLocation) {
+    if (markersRef.current.length > 0) {
+      if (userLocation && userLocation.lng && userLocation.lat && 
+          !isNaN(userLocation.lng) && !isNaN(userLocation.lat)) {
         bounds.extend([userLocation.lng, userLocation.lat]);
       }
-      mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      
+      try {
+        mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      } catch (error) {
+        console.warn('⚠️ Could not fit bounds:', error);
+        // Fallback to default center
+        mapRef.current.setCenter([36.817223, -1.286389]);
+        mapRef.current.setZoom(13);
+      }
     }
   }, [mapLoaded, parkingSpaces, selectedSpace, onSpaceSelect, navigate]);
 
   return (
-    <div className="w-full h-full rounded-lg relative" style={{ minHeight: '600px' }}>
+    <div style={{ 
+      width: '100%', 
+      height: '100%', 
+      minHeight: '600px',
+      position: 'relative',
+      borderRadius: '0.5rem',
+      overflow: 'hidden',
+      backgroundColor: '#f3f4f6'
+    }}>
       <div 
-        ref={mapContainerRef} 
-        className="w-full h-full rounded-lg"
-        style={{ minHeight: '600px' }}
+        ref={mapContainerRef}
+        className="map-container"
+        style={{ 
+          width: '100%',
+          height: '100%',
+          minHeight: '600px',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
       />
       
       {/* Legend */}
@@ -298,12 +358,38 @@ const ParkingMapbox = ({ parkingSpaces = [], userLocation, onSpaceSelect, select
       )}
       
       {/* Loading State */}
-      {!mapLoaded && (
+      {!mapLoaded && !mapError && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-20">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading Map...</h3>
             <p className="text-sm text-gray-600">Initializing Mapbox</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg z-20">
+          <div className="text-center max-w-md p-6">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h3 className="text-xl font-semibold text-red-900 mb-2">Map Loading Failed</h3>
+            <p className="text-sm text-red-700 mb-4">{mapError}</p>
+            <div className="text-xs text-left bg-white p-4 rounded border border-red-200 mb-4">
+              <p className="font-semibold mb-2">Troubleshooting:</p>
+              <ul className="list-disc list-inside space-y-1 text-gray-700">
+                <li>Check your Mapbox token in .env file</li>
+                <li>Ensure VITE_MAPBOX_TOKEN is set correctly</li>
+                <li>Verify your internet connection</li>
+                <li>Check browser console for errors</li>
+              </ul>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         </div>
       )}

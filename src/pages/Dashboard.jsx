@@ -17,6 +17,35 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("available");
 
+  // Format Firestore timestamp to readable date
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    
+    // Handle Firestore Timestamp object
+    if (timestamp.seconds) {
+      const date = new Date(timestamp.seconds * 1000);
+      return date.toLocaleString('en-KE', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    
+    // Handle regular date string
+    if (typeof timestamp === 'string') {
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-KE', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    
+    return 'N/A';
+  };
+
   const loading = spacesLoading || bookingsLoading;
 
   if (!user) {
@@ -80,8 +109,8 @@ const Dashboard = () => {
         
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <History className="w-6 h-6 text-purple-600" />
+            <div className="p-3 bg-green-100 rounded-lg">
+              <History className="w-6 h-6 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-600">Your Bookings</p>
@@ -180,7 +209,7 @@ const Dashboard = () => {
                             <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                               <span className="flex items-center">
                                 <Calendar className="w-4 h-4 mr-1" />
-                                {booking.startTime} - {booking.endTime}
+                                {formatDate(booking.startTime)} - {formatDate(booking.endTime)}
                               </span>
                             </div>
                           </div>
@@ -230,8 +259,8 @@ const Dashboard = () => {
               <p className="text-2xl font-bold text-green-600">{availableSpaces.length}</p>
               <p className="text-sm text-gray-600">Available Now</p>
             </div>
-            <div className="p-4 bg-purple-50 rounded-lg">
-              <p className="text-2xl font-bold text-purple-600">{userBookings.length}</p>
+            <div className="p-4 bg-green-50 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">{userBookings.length}</p>
               <p className="text-sm text-gray-600">Your Bookings</p>
             </div>
           </div>

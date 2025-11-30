@@ -35,6 +35,8 @@ const AdminDashboard = () => {
   const [bookingsCount, setBookingsCount] = useState(0);
   const [slotsCount, setSlotsCount] = useState(0);
   const [slotsList, setSlotsList] = useState([]);
+  const [bookingsList, setBookingsList] = useState([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +53,10 @@ const AdminDashboard = () => {
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+
+  // Edit state
+  const [editingSpot, setEditingSpot] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -75,8 +81,18 @@ const AdminDashboard = () => {
     );
 
     const unsubBookings = onSnapshot(
-      collection(db, "bookings"), 
-      (snap) => setBookingsCount(snap.docs.length),
+      collection(db, "ParkingHistory"), 
+      (snap) => {
+        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setBookingsCount(bookings.length);
+        setBookingsList(bookings);
+        
+        // Calculate total revenue
+        const revenue = bookings.reduce((sum, booking) => {
+          return sum + (booking.totalPrice || 0);
+        }, 0);
+        setTotalRevenue(revenue);
+      },
       (err) => console.error("Error fetching bookings:", err)
     );
 
@@ -170,25 +186,22 @@ const AdminDashboard = () => {
         status: newSpot.status,
         price: Number(newSpot.price),
         image: imageUrl || "",
+        imageUrl: imageUrl || "", // Both field names for compatibility
         features: ["Covered", "24/7", "CCTV"],
         rating: 0,
         reviews: 0,
+        totalReviews: 0, // Both field names
         distance: 0,
         available: newSpot.available ? Number(newSpot.available) : 0,
+        availableSpots: newSpot.available ? Number(newSpot.available) : 0, // Both field names
         total: newSpot.total ? Number(newSpot.total) : 0,
+        totalSpots: newSpot.total ? Number(newSpot.total) : 0, // Both field names
+        coordinates: { lat: -1.286389, lng: 36.817223 }, // Default Nairobi coordinates
         createdAt: serverTimestamp(),
       };
 
-      // Write to both collections for compatibility
+      // Write to parking_slots collection only (with both old and new field names)
       await addDoc(collection(db, "parking_slots"), spotData);
-      await addDoc(collection(db, "ParkingSpaces"), {
-        ...spotData,
-        totalSpots: spotData.total,
-        availableSpots: spotData.available,
-        imageUrl: spotData.image,
-        totalReviews: spotData.reviews,
-        coordinates: { lat: 0, lng: 0 } // Default coordinates
-      });
 
       alert("Parking spot added successfully!");
       
@@ -207,6 +220,79 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error("Error adding parking spot:", err);
       alert(`Error adding parking spot: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditSpot = (spot) => {
+    setEditingSpot({
+      id: spot.id,
+      name: spot.name,
+      location: spot.location,
+      status: spot.status,
+      price: spot.price,
+      available: spot.available || spot.availableSpots || 0,
+      total: spot.total || spot.totalSpots || 0,
+      imageUrl: spot.image || spot.imageUrl || ""
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateSpot = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      // Validate inputs
+      if (Number(editingSpot.price) <= 0) {
+        alert("Price must be greater than 0");
+        setSubmitting(false);
+        return;
+      }
+
+      if (editingSpot.total && Number(editingSpot.total) <= 0) {
+        alert("Total spots must be greater than 0");
+        setSubmitting(false);
+        return;
+      }
+
+      if (editingSpot.available && editingSpot.total && Number(editingSpot.available) > Number(editingSpot.total)) {
+        alert("Available spots cannot exceed total spots");
+        setSubmitting(false);
+        return;
+      }
+
+      let imageUrl = editingSpot.imageUrl;
+      if (imageFile) {
+        imageUrl = await uploadImage();
+      }
+
+      const spotData = {
+        name: editingSpot.name.trim(),
+        location: editingSpot.location.trim(),
+        status: editingSpot.status,
+        price: Number(editingSpot.price),
+        image: imageUrl || "",
+        imageUrl: imageUrl || "",
+        available: editingSpot.available ? Number(editingSpot.available) : 0,
+        availableSpots: editingSpot.available ? Number(editingSpot.available) : 0,
+        total: editingSpot.total ? Number(editingSpot.total) : 0,
+        totalSpots: editingSpot.total ? Number(editingSpot.total) : 0,
+        updatedAt: serverTimestamp(),
+      };
+
+      await updateDoc(doc(db, "parking_slots", editingSpot.id), spotData);
+
+      alert("Parking spot updated successfully!");
+      setShowEditModal(false);
+      setEditingSpot(null);
+      setImageFile(null);
+      setImagePreview(null);
+
+    } catch (err) {
+      console.error("Error updating parking spot:", err);
+      alert(`Error updating parking spot: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -237,19 +323,49 @@ const AdminDashboard = () => {
     }
   };
 
-  const revenue = bookingsCount * 100; // example calculation
+  // Revenue is now calculated from real booking data
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md p-8 bg-white rounded-lg shadow-lg">
+          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">You don't have admin privileges to access this page.</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Go to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <button
+          onClick={() => navigate('/analytics')}
+          className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+        >
+          <BarChart3 className="w-5 h-5" />
+          View Analytics
+        </button>
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6 flex items-center">
@@ -262,7 +378,7 @@ const AdminDashboard = () => {
       <div className="grid md:grid-cols-4 gap-6 mb-8">
         <Stat icon={Users} label="Total Users" value={usersCount} color="blue" />
         <Stat icon={ParkingSquare} label="Parking Spots" value={slotsCount} color="green" />
-        <Stat icon={DollarSign} label="Revenue (KES)" value={revenue.toLocaleString()} color="purple" />
+        <Stat icon={DollarSign} label="Revenue (KES)" value={totalRevenue.toLocaleString()} color="green" />
         <Stat icon={BarChart3} label="Bookings" value={bookingsCount} color="orange" />
       </div>
 
@@ -447,17 +563,186 @@ const AdminDashboard = () => {
                   )}
                 </div>
 
-                <button
-                  onClick={() => handleDeleteSpot(spot.id, spot.image)}
-                  className="mt-4 w-full bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 transition-colors"
-                >
-                  Delete
-                </button>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => handleEditSpot(spot)}
+                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSpot(spot.id, spot.image)}
+                    className="flex-1 bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editingSpot && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Edit Parking Spot</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingSpot(null);
+                  setImageFile(null);
+                  setImagePreview(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSpot} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Spot Name *
+                </label>
+                <input
+                  type="text"
+                  value={editingSpot.name}
+                  onChange={(e) => setEditingSpot({...editingSpot, name: e.target.value})}
+                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Location *
+                </label>
+                <input
+                  type="text"
+                  value={editingSpot.location}
+                  onChange={(e) => setEditingSpot({...editingSpot, location: e.target.value})}
+                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Price (KSH) *
+                  </label>
+                  <input
+                    type="number"
+                    value={editingSpot.price}
+                    onChange={(e) => setEditingSpot({...editingSpot, price: e.target.value})}
+                    min="1"
+                    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status *
+                  </label>
+                  <select
+                    value={editingSpot.status}
+                    onChange={(e) => setEditingSpot({...editingSpot, status: e.target.value})}
+                    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="available">Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="booked">Booked</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Available Spots
+                  </label>
+                  <input
+                    type="number"
+                    value={editingSpot.available}
+                    onChange={(e) => setEditingSpot({...editingSpot, available: e.target.value})}
+                    min="0"
+                    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Total Spots
+                  </label>
+                  <input
+                    type="number"
+                    value={editingSpot.total}
+                    onChange={(e) => setEditingSpot({...editingSpot, total: e.target.value})}
+                    min="0"
+                    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Update Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {(imagePreview || editingSpot.imageUrl) && (
+                  <div className="mt-2">
+                    <img 
+                      src={imagePreview || editingSpot.imageUrl} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover rounded"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingSpot(null);
+                    setImageFile(null);
+                    setImagePreview(null);
+                  }}
+                  className="flex-1 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={submitting}
+                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Spot"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -466,7 +751,6 @@ const Stat = ({ icon: Icon, label, value, color }) => {
   const colors = {
     blue: "bg-blue-100 text-blue-600",
     green: "bg-green-100 text-green-600",
-    purple: "bg-purple-100 text-purple-600",
     orange: "bg-orange-100 text-orange-600",
   };
   
