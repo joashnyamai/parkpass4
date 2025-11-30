@@ -111,7 +111,14 @@ function App() {
                   <Route path="/add-coordinates" element={<AddCoordinatesPage />} />
                   
                   {/* Make Admin Page */}
-                  <Route path="/make-admin" element={<MakeAdminPage />} />
+                  <Route
+                    path="/make-admin"
+                    element={
+                      <AdminRoute>
+                        <MakeAdminPage />
+                      </AdminRoute>
+                    }
+                  />
 
                   {/* Map Test Page */}
                   <Route path="/map-test" element={<MapTestPage />} />
