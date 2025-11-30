@@ -41,19 +41,22 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <>
-                <Link
-                  to="/"
-                  className="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
-                >
-                  Find Parking
-                </Link>
+                {/* Only show Find Parking for non-admin users */}
+                {userProfile?.role !== 'admin' && (
+                  <Link
+                    to="/"
+                    className="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
+                  >
+                    Find Parking
+                  </Link>
+                )}
                 
                 <Link
                   to={userProfile?.role === 'admin' ? '/admin' : '/dashboard'}
                   className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  <span>Dashboard</span>
+                  <span>{userProfile?.role === 'admin' ? 'Admin Panel' : 'Dashboard'}</span>
                 </Link>
 
                 {/* User Menu */}
@@ -92,20 +95,23 @@ const Navbar = () => {
           <div className="md:hidden py-4 border-t border-gray-200">
             {user ? (
               <div className="space-y-2">
-                <Link
-                  to="/"
-                  className="block text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Find Parking
-                </Link>
+                {/* Only show Find Parking for non-admin users */}
+                {userProfile?.role !== 'admin' && (
+                  <Link
+                    to="/"
+                    className="block text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Find Parking
+                  </Link>
+                )}
                 <Link
                   to={userProfile?.role === 'admin' ? '/admin' : '/dashboard'}
                   className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  <span>Dashboard</span>
+                  <span>{userProfile?.role === 'admin' ? 'Admin Panel' : 'Dashboard'}</span>
                 </Link>
                 <div className="pt-2 border-t border-gray-200">
                   <div className="flex items-center space-x-2 px-3 py-2">

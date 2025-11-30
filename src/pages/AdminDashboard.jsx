@@ -19,12 +19,16 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   // Check admin status from both new and old collections
-  const isAdmin = userProfile?.role === "admin" || user?.email === "gg2techkenya@gmail.com";
+  const isAdmin = userProfile?.role === "admin" || 
+                  userProfile?.isAdmin === true ||
+                  user?.email === "gg2techkenya@gmail.com";
   
-  console.log('Admin check:', { 
-    user: user?.email, 
-    userProfile, 
-    isAdmin 
+  console.log('🔐 Admin check:', { 
+    userEmail: user?.email,
+    userProfileRole: userProfile?.role,
+    userProfileIsAdmin: userProfile?.isAdmin,
+    isAdmin,
+    fullUserProfile: userProfile
   });
 
   const [usersCount, setUsersCount] = useState(0);
@@ -258,7 +262,7 @@ const AdminDashboard = () => {
       <div className="grid md:grid-cols-4 gap-6 mb-8">
         <Stat icon={Users} label="Total Users" value={usersCount} color="blue" />
         <Stat icon={ParkingSquare} label="Parking Spots" value={slotsCount} color="green" />
-        <Stat icon={DollarSign} label="Revenue" value={`$${revenue.toLocaleString()}`} color="purple" />
+        <Stat icon={DollarSign} label="Revenue (KES)" value={revenue.toLocaleString()} color="purple" />
         <Stat icon={BarChart3} label="Bookings" value={bookingsCount} color="orange" />
       </div>
 

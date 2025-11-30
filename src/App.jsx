@@ -16,6 +16,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import BookingPage from './pages/BookingPage'
 import DiagnosticPage from './pages/DiagnosticPage'
 import AddCoordinatesPage from './pages/AddCoordinatesPage'
+import MakeAdminPage from './pages/MakeAdminPage'
 
 // -------------------- Protected Route --------------------
 const ProtectedRoute = ({ children }) => {
@@ -97,6 +98,9 @@ function App() {
               
               {/* Add Coordinates Page */}
               <Route path="/add-coordinates" element={<AddCoordinatesPage />} />
+              
+              {/* Make Admin Page */}
+              <Route path="/make-admin" element={<MakeAdminPage />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
