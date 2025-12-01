@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "ParkPass",
+    "slug": "parkpass-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.parkpass.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ParkPass needs your location to find nearby parking spaces."
+      }
+    },
+    "android": {
+      "package": "com.parkpass.mobile",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow ParkPass to use your location to find nearby parking."
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}
