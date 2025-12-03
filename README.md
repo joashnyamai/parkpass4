@@ -247,7 +247,7 @@ This project is part of a Final Year Project.
 
 ## 📧 Contact
 
-For questions or support, please contact the development team.
+For questions or support, please contact Dev Joash.
 
 ## 🙏 Acknowledgments
 
@@ -255,6 +255,4 @@ For questions or support, please contact the development team.
 - Google Maps for location services
 - React community for excellent tools and libraries
 
----
-
-**Note**: This is a refactored version aligned with the project documentation. See [REFACTORING_GUIDE.md](./REFACTORING_GUIDE.md) for migration details.
+Made with ❤️ by Malila Nyamai • Frontend Developer & Co-founder
