@@ -31,7 +31,6 @@ A real-time parking management system built with React, Firebase, and Google Map
 - **ParkingSpaces** - Parking locations with real-time availability
 - **ParkingHistory** - Booking records and history
 
-See [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) for detailed schema.
 
 ## 🛠️ Tech Stack
 
